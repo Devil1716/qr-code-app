@@ -7,6 +7,7 @@ import { AttendanceTable } from "./AttendanceTable";
 import { TeacherEntryForm } from "./TeacherEntryForm";
 import { StudentEntryForm } from "./StudentEntryForm";
 import { DataEntryDashboard } from "./DataEntryDashboard";
+import { TimetableManagement } from "./TimetableManagement";
 import {
   Users,
   BookOpen,
@@ -14,6 +15,7 @@ import {
   ClipboardCheck,
   Upload,
   Database,
+  Calendar,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -38,7 +40,7 @@ export function AdminDashboard() {
         <h1 className="text-3xl font-bold">Admin Dashboard</h1>
 
         <Tabs defaultValue="users" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-6 h-14">
+          <TabsList className="grid w-full grid-cols-7 h-14">
             <TabsTrigger value="users" className="space-x-2">
               <Users className="h-4 w-4" />
               <span>Users</span>
@@ -54,6 +56,10 @@ export function AdminDashboard() {
             <TabsTrigger value="attendance" className="space-x-2">
               <ClipboardCheck className="h-4 w-4" />
               <span>Attendance</span>
+            </TabsTrigger>
+            <TabsTrigger value="timetable" className="space-x-2">
+              <Calendar className="h-4 w-4" />
+              <span>Timetable</span>
             </TabsTrigger>
             <TabsTrigger value="teachers" className="space-x-2">
               <Database className="h-4 w-4" />
@@ -83,6 +89,10 @@ export function AdminDashboard() {
 
           <TabsContent value="attendance">
             <AttendanceTable />
+          </TabsContent>
+
+          <TabsContent value="timetable">
+            <TimetableManagement />
           </TabsContent>
 
           <TabsContent value="teachers">

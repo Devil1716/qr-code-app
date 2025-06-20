@@ -17,9 +17,9 @@ function App() {
         <Route path="/" element={<LoginPage />} />
 
         {/* Protected routes */}
-        <Route path="/teacher/*" element={<TeacherDashboard />} />
-        <Route path="/student/*" element={<StudentDashboard />} />
-        <Route path="/admin/*" element={<AdminDashboard />} />
+        <Route path="/teacher" element={<TeacherDashboard />} />
+        <Route path="/student" element={<StudentDashboard />} />
+        <Route path="/admin" element={<AdminDashboard />} />
 
         {/* Add this before any catchall route */}
         {import.meta.env.VITE_TEMPO === "true" && <Route path="/tempobook/*" />}

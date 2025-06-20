@@ -65,8 +65,12 @@ const QRCodeModal = ({
       setLocation(position);
       setLocationValid(true);
 
+      // Generate QR code data for the new timetable system
+      // Check if this is a subject or temporary class
       const data = {
+        // For backward compatibility, include both classId and subjectId
         classId: classDetails.id,
+        subjectId: classDetails.id, // Assuming the ID represents a subject
         timestamp: Date.now(),
         expiresIn: EXPIRATION_TIME,
         location: {
@@ -88,18 +92,43 @@ const QRCodeModal = ({
   const loadAttendanceStats = async () => {
     if (!classDetails.id) return;
 
-    const { data, error } = await supabase
-      .from("attendance_records")
-      .select("status")
-      .eq("class_id", classDetails.id);
+    try {
+      // Load attendance stats from the new timetable system
+      // Try to get attendance records for this subject
+      const { data: attendanceRecords, error } = await supabase
+        .from("attendance_records")
+        .select("status")
+        .eq("subject_id", classDetails.id);
 
-    if (data) {
-      const stats = {
-        present: data.filter((r) => r.status === "present").length,
-        absent: data.filter((r) => r.status === "absent").length,
-        proxyAttempts: data.filter((r) => r.status === "proxy").length,
-      };
-      setAttendanceStats(stats);
+      if (error) {
+        console.error("Error loading attendance stats:", error);
+        // Fallback to old system if needed
+        const { data: fallbackData } = await supabase
+          .from("attendance_records")
+          .select("status")
+          .eq("class_id", classDetails.id);
+
+        if (fallbackData) {
+          const stats = {
+            present: fallbackData.filter((r) => r.status === "present").length,
+            absent: fallbackData.filter((r) => r.status === "absent").length,
+            proxyAttempts: fallbackData.filter((r) => r.status === "proxy")
+              .length,
+          };
+          setAttendanceStats(stats);
+        }
+      } else if (attendanceRecords) {
+        const stats = {
+          present: attendanceRecords.filter((r) => r.status === "present")
+            .length,
+          absent: attendanceRecords.filter((r) => r.status === "absent").length,
+          proxyAttempts: attendanceRecords.filter((r) => r.status === "proxy")
+            .length,
+        };
+        setAttendanceStats(stats);
+      }
+    } catch (error) {
+      console.error("Error loading attendance stats:", error);
     }
   };
 

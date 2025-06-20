@@ -1,9 +1,10 @@
 import React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Bell, LogOut, Settings } from "lucide-react";
+import { Bell, LogOut, Settings, GraduationCap } from "lucide-react";
 import { ThemeToggle } from "../theme-toggle";
 import { useAuth } from "@/hooks/useAuth";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,21 +14,25 @@ import {
 
 interface TeacherHeaderProps {
   teacherName?: string;
+  teacherId?: string;
+  department?: string;
   avatarUrl?: string;
   onSettings?: () => void;
 }
 
 const TeacherHeader = ({
   teacherName = "Dr. Jane Smith",
+  teacherId = "T123456",
+  department = "Computer Science",
   avatarUrl = "https://api.dicebear.com/7.x/avataaars/svg?seed=teacher1",
   onSettings = () => {},
 }: TeacherHeaderProps) => {
   const { handleLogout } = useAuth();
 
   return (
-    <header className="w-full h-20 px-4 md:px-6 border-b border-border flex items-center justify-between">
+    <header className="w-full h-20 px-4 md:px-6 border-b border-border flex items-center justify-between bg-background">
       <div className="flex items-center space-x-4">
-        <Avatar className="h-10 w-10">
+        <Avatar className="h-10 w-10 border-2 border-primary/10">
           <AvatarImage src={avatarUrl} alt={teacherName} />
           <AvatarFallback>
             {teacherName
@@ -37,8 +42,22 @@ const TeacherHeader = ({
           </AvatarFallback>
         </Avatar>
         <div>
-          <h2 className="text-lg font-semibold">{teacherName}</h2>
-          <p className="text-sm text-gray-500">Teacher</p>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold">{teacherName}</h2>
+            <Badge variant="outline" className="flex items-center gap-1">
+              <GraduationCap className="h-3 w-3" />
+              Teacher
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>ID: {teacherId}</span>
+            {department && (
+              <>
+                <span>•</span>
+                <span>{department}</span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 

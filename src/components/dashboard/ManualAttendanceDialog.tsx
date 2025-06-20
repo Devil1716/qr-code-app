@@ -12,6 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Search, UserCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { recordAttendance, getClassStudents } from "@/lib/api/attendance-api";
 
 interface ManualAttendanceDialogProps {
   open: boolean;
@@ -27,15 +28,34 @@ export function ManualAttendanceDialog({
   const [search, setSearch] = useState("");
   const [students, setStudents] = useState<any[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [error, setError] = useState("");
 
   const searchStudents = async (query: string) => {
-    const { data } = await supabase
-      .from("users")
-      .select("*")
-      .eq("role", "student")
-      .ilike("name", `%${query}%`);
+    try {
+      // First try to get students enrolled in this class
+      const enrolledStudents = await getClassStudents(classId);
 
-    setStudents(data || []);
+      if (enrolledStudents.length > 0) {
+        // Filter enrolled students by name
+        const filteredStudents = enrolledStudents.filter((student) =>
+          student.name.toLowerCase().includes(query.toLowerCase()),
+        );
+        setStudents(filteredStudents);
+        return;
+      }
+
+      // Fallback to searching all students
+      const { data } = await supabase
+        .from("users")
+        .select("*")
+        .eq("role", "student")
+        .ilike("name", `%${query}%`);
+
+      setStudents(data || []);
+    } catch (error) {
+      console.error("Error searching students:", error);
+      setStudents([]);
+    }
   };
 
   const handleSearch = (value: string) => {
@@ -54,18 +74,22 @@ export function ManualAttendanceDialog({
   };
 
   const markAttendance = async () => {
-    const records = selectedStudents.map((studentId) => ({
-      class_id: classId,
-      student_id: studentId,
-      status: "present",
-      is_manual: true,
-      marked_by: "current_user_id", // TODO: Get from auth context
-    }));
+    try {
+      // Mark each student as present
+      for (const studentId of selectedStudents) {
+        await recordAttendance({
+          classId,
+          studentId,
+          status: "present",
+          isManual: true,
+          markedBy: "current_user_id", // TODO: Get from auth context
+        });
+      }
 
-    const { error } = await supabase.from("attendance_records").insert(records);
-
-    if (!error) {
       onClose();
+    } catch (error) {
+      console.error("Error marking attendance:", error);
+      setError("Failed to mark attendance. Please try again.");
     }
   };
 
@@ -130,6 +154,8 @@ export function ManualAttendanceDialog({
               Mark Present
             </Button>
           </div>
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
       </DialogContent>
     </Dialog>

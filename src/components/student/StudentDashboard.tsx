@@ -1,261 +1,525 @@
-import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { QrScanner } from "@/components/student/QrScanner";
-import { StudentHeader } from "@/components/student/StudentHeader";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar } from "@/components/ui/calendar";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { CalendarDays, QrCode, History, BookOpen } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Button } from "../ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { StudentHeader } from "./StudentHeader";
+import { QrScanner } from "./QrScanner";
+import { CourseRegistration } from "./CourseRegistration";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import {
+  Clock,
+  MapPin,
+  QrCode,
+  BookOpen,
+  CalendarDays,
+  User,
+  Users,
+} from "lucide-react";
+import { Badge } from "../ui/badge";
 
-const StudentDashboard = () => {
+function StudentDashboard() {
+  const navigate = useNavigate();
+  const [user, setUser] = useState<any>(null);
+  const [enrolledSubjects, setEnrolledSubjects] = useState<any[]>([]);
+  const [enrolledEvents, setEnrolledEvents] = useState<any[]>([]);
   const [showScanner, setShowScanner] = useState(false);
-  const [date, setDate] = useState<Date | undefined>(new Date());
-  const [attendanceHistory, setAttendanceHistory] = useState([]);
-  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("profile");
 
   useEffect(() => {
-    loadStudentData();
-  }, []);
+    // Check if user is logged in and has the student role
+    const checkAuth = async () => {
+      try {
+        // Get user info from localStorage
+        const userId = localStorage.getItem("userId");
+        const userEmail = localStorage.getItem("userEmail");
+        const userRole = localStorage.getItem("userRole");
 
-  const loadStudentData = async () => {
-    // Load enrolled classes
-    const { data: enrollments } = await supabase.from("class_enrollments")
-      .select(`
-        classes (id, title, start_time, end_time, room)
-      `);
+        if (!userId || !userEmail || userRole !== "student") {
+          navigate("/");
+          return;
+        }
 
-    if (enrollments) {
-      setCourses(
-        enrollments.map((e) => ({
-          name: e.classes.title,
-          code: e.classes.id,
-          schedule: `${e.classes.start_time} - ${e.classes.end_time}`,
-          attendance: "85%", // TODO: Calculate from attendance records
-        })),
-      );
-    }
+        // Get user details from database
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", userId)
+          .single();
 
-    // Load attendance history
-    const { data: history } = await supabase
-      .from("attendance_records")
-      .select(
-        `
-        *,
-        classes (title)
-      `,
-      )
-      .order("created_at", { ascending: false });
+        if (userError || !userData) {
+          console.error("Error fetching user data:", userError);
+          navigate("/");
+          return;
+        }
 
-    if (history) {
-      setAttendanceHistory(
-        history.map((h) => ({
-          class: h.classes.title,
-          date: new Date(h.created_at).toLocaleDateString(),
-          time: new Date(h.created_at).toLocaleTimeString(),
-          status: h.status,
-        })),
-      );
-    }
-  };
+        setUser(userData);
+        loadEnrolledData(userData.id);
+      } catch (error) {
+        console.error("Error checking auth:", error);
+        navigate("/");
+      }
+    };
 
-  const handleQRSuccess = async (data: string) => {
+    checkAuth();
+  }, [navigate]);
+
+  const loadEnrolledData = async (studentId: string) => {
     try {
-      const qrData = JSON.parse(data);
+      setLoading(true);
 
-      // Record attendance
-      const { error } = await supabase.from("attendance_records").insert({
-        class_id: qrData.classId,
-        student_id: "current_user_id", // TODO: Get from auth context
-        status: "present",
-        location_lat: qrData.location?.lat,
-        location_lng: qrData.location?.lng,
-      });
+      // Load enrolled subjects
+      const { data: subjectData, error: subjectError } = await supabase
+        .from("student_subject_registrations")
+        .select(
+          `
+          *,
+          subjects!student_subject_registrations_subject_id_fkey(
+            *,
+            users!subjects_teacher_id_fkey(name, teacher_id),
+            slot_assignments!inner(
+              slots(
+                slot_code,
+                day_of_week,
+                start_time,
+                end_time
+              )
+            )
+          )
+        `,
+        )
+        .eq("student_id", studentId)
+        .eq("is_active", true);
 
-      if (error) throw error;
+      if (subjectError) {
+        console.error("Error loading enrolled subjects:", subjectError);
+      } else {
+        const dayNames = {
+          1: "Monday",
+          2: "Tuesday",
+          3: "Wednesday",
+          4: "Thursday",
+          5: "Friday",
+        };
 
-      // Reload data
-      loadStudentData();
-      setShowScanner(false);
-    } catch (err) {
-      console.error("Error recording attendance:", err);
+        const processedSubjects = (subjectData || []).map((registration) => {
+          const subject = registration.subjects;
+          const slotInfo = subject?.slot_assignments?.[0]?.slots;
+
+          return {
+            ...subject,
+            teacher: subject?.users,
+            slot_info: slotInfo
+              ? {
+                  slot_code: slotInfo.slot_code,
+                  day_name:
+                    dayNames[slotInfo.day_of_week as keyof typeof dayNames] ||
+                    "Unknown",
+                  start_time: slotInfo.start_time,
+                  end_time: slotInfo.end_time,
+                }
+              : null,
+          };
+        });
+
+        setEnrolledSubjects(processedSubjects);
+      }
+
+      // Load enrolled temporary classes/events
+      const { data: eventData, error: eventError } = await supabase
+        .from("temporary_class_registrations")
+        .select(
+          `
+          *,
+          temporary_classes!temporary_class_registrations_temporary_class_id_fkey(
+            *,
+            users!temporary_classes_teacher_id_fkey(name, teacher_id)
+          )
+        `,
+        )
+        .eq("student_id", studentId)
+        .eq("approval_status", "approved");
+
+      if (eventError) {
+        console.error("Error loading enrolled events:", eventError);
+      } else {
+        const processedEvents = (eventData || []).map((registration) => ({
+          ...registration.temporary_classes,
+          teacher: registration.temporary_classes?.users,
+        }));
+
+        setEnrolledEvents(processedEvents);
+      }
+    } catch (error) {
+      console.error("Error loading enrolled data:", error);
+    } finally {
+      setLoading(false);
     }
   };
+
+  const handleScanClick = () => {
+    setShowScanner(true);
+  };
+
+  const handleCloseScanner = () => {
+    setShowScanner(false);
+  };
+
+  const handleRegistrationComplete = () => {
+    // Reload enrolled data after registration
+    if (user) {
+      loadEnrolledData(user.id);
+      setActiveTab("classes");
+    }
+  };
+
+  const formatDateTime = (dateString: string) => {
+    return new Date(dateString).toLocaleString();
+  };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
-      <StudentHeader />
+      <StudentHeader
+        studentName={user.name}
+        studentId={user.student_id}
+        avatarUrl={user.image_url}
+      />
 
-      <main className="container mx-auto px-4 py-6">
-        <Tabs defaultValue="dashboard" className="space-y-6">
+      <main className="container mx-auto py-6 px-4">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Student Dashboard</h1>
+          <Button onClick={handleScanClick} className="flex items-center gap-2">
+            <QrCode className="h-4 w-4" />
+            Scan Attendance QR
+          </Button>
+        </div>
+
+        {showScanner && (
+          <QrScanner
+            open={showScanner}
+            onClose={handleCloseScanner}
+            studentId={user.id}
+          />
+        )}
+
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="space-y-6"
+        >
           <TabsList className="grid w-full grid-cols-4 h-14">
-            <TabsTrigger value="dashboard" className="space-x-2">
-              <QrCode className="h-4 w-4" />
-              <span>Dashboard</span>
+            <TabsTrigger value="profile" className="space-x-2">
+              <User className="h-4 w-4" />
+              <span>Profile</span>
             </TabsTrigger>
-            <TabsTrigger value="courses" className="space-x-2">
+            <TabsTrigger value="classes" className="space-x-2">
               <BookOpen className="h-4 w-4" />
-              <span>Courses</span>
+              <span>My Classes</span>
             </TabsTrigger>
-            <TabsTrigger value="calendar" className="space-x-2">
+            <TabsTrigger value="registration" className="space-x-2">
               <CalendarDays className="h-4 w-4" />
-              <span>Calendar</span>
+              <span>Registration</span>
             </TabsTrigger>
-            <TabsTrigger value="history" className="space-x-2">
-              <History className="h-4 w-4" />
-              <span>History</span>
+            <TabsTrigger value="scanner" className="space-x-2">
+              <QrCode className="h-4 w-4" />
+              <span>QR Scanner</span>
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="dashboard" className="space-y-6">
-            <Card className="p-6">
-              <h2 className="text-2xl font-bold mb-4">Quick Actions</h2>
-              <Button
-                size="lg"
-                onClick={() => setShowScanner(true)}
-                className="w-full md:w-auto"
-              >
-                Scan Attendance QR Code
-              </Button>
-            </Card>
+          <TabsContent value="profile">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <User className="h-5 w-5 mr-2" />
+                  Student Profile
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center space-x-4">
+                  <Avatar className="h-16 w-16">
+                    <AvatarImage src={user.image_url} />
+                    <AvatarFallback>
+                      {user.name?.charAt(0) || "S"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h3 className="text-xl font-semibold">{user.name}</h3>
+                    <p className="text-muted-foreground">
+                      Student ID: {user.student_id}
+                    </p>
+                    <p className="text-muted-foreground">Email: {user.email}</p>
+                    <p className="text-muted-foreground">
+                      Department: {user.department}
+                    </p>
+                  </div>
+                </div>
 
-            <Card className="p-6">
-              <h2 className="text-2xl font-bold mb-4">Today's Schedule</h2>
-              <div className="space-y-4">
-                {courses.map((course, index) => (
-                  <div
-                    key={index}
-                    className="flex justify-between items-center p-4 bg-muted rounded-lg"
-                  >
-                    <div>
-                      <h3 className="font-medium">{course.name}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {course.schedule}
+                <div className="grid grid-cols-2 gap-4 mt-6">
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-primary">
+                          {enrolledSubjects.length}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Enrolled Subjects
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-primary">
+                          {enrolledEvents.length}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Registered Events
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="classes" className="space-y-6">
+            <div className="space-y-6">
+              {/* Enrolled Subjects */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <BookOpen className="h-5 w-5 mr-2" />
+                    My Enrolled Subjects
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <p>Loading your subjects...</p>
+                  ) : enrolledSubjects.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>You are not enrolled in any subjects yet.</p>
+                      <p className="text-sm mt-2">
+                        Go to the Registration tab to enroll in subjects.
                       </p>
                     </div>
-                    <Badge variant="secondary">{course.code}</Badge>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </TabsContent>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {enrolledSubjects.map((subject) => (
+                        <Card
+                          key={subject.id}
+                          className="border-l-4 border-l-primary"
+                        >
+                          <CardHeader className="pb-3">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <CardTitle className="text-lg">
+                                  {subject.course_code}
+                                </CardTitle>
+                                <CardDescription>
+                                  {subject.subject_name}
+                                </CardDescription>
+                              </div>
+                              <Badge
+                                variant={
+                                  subject.subject_type === "lab"
+                                    ? "secondary"
+                                    : "default"
+                                }
+                              >
+                                {subject.subject_type}
+                              </Badge>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            <div className="flex items-center space-x-4">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={subject.teacher?.image_url} />
+                                <AvatarFallback>
+                                  {subject.teacher?.name?.charAt(0) || "T"}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="text-sm font-medium">
+                                  {subject.teacher?.name}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {subject.teacher?.teacher_id}
+                                </p>
+                              </div>
+                            </div>
 
-          <TabsContent value="courses" className="space-y-6">
-            <Card className="p-6">
-              <h2 className="text-2xl font-bold mb-4">My Courses</h2>
-              <div className="space-y-4">
-                {courses.map((course, index) => (
-                  <div
-                    key={index}
-                    className="p-4 bg-muted rounded-lg space-y-2"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-medium">{course.name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {course.schedule}
-                        </p>
-                      </div>
-                      <Badge>{course.code}</Badge>
-                    </div>
-                    <div className="flex justify-between items-center pt-2">
-                      <span className="text-sm">Attendance Rate</span>
-                      <Badge
-                        variant={
-                          parseInt(course.attendance) >= 80
-                            ? "default"
-                            : "destructive"
-                        }
-                      >
-                        {course.attendance}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </TabsContent>
+                            {subject.slot_info && (
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Clock className="h-4 w-4" />
+                                  <span>{subject.slot_info.day_name}</span>
+                                  <span>
+                                    {subject.slot_info.start_time} -{" "}
+                                    {subject.slot_info.end_time}
+                                  </span>
+                                </div>
+                                <Badge variant="outline" className="text-xs">
+                                  Slot {subject.slot_info.slot_code}
+                                </Badge>
+                              </div>
+                            )}
 
-          <TabsContent value="calendar" className="space-y-6">
-            <Card className="p-6">
-              <h2 className="text-2xl font-bold mb-4">Attendance Calendar</h2>
-              <div className="flex flex-col md:flex-row gap-6">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  className="rounded-md border"
-                />
-                <Card className="flex-1 p-4">
-                  <h3 className="font-medium mb-2">
-                    {date?.toLocaleDateString(undefined, {
-                      weekday: "long",
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </h3>
-                  <div className="space-y-2">
-                    {courses.map((course, index) => (
-                      <div
-                        key={index}
-                        className="p-2 bg-muted rounded-lg flex justify-between items-center"
-                      >
-                        <span className="text-sm">{course.name}</span>
-                        <span className="text-sm text-muted-foreground">
-                          {course.schedule}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                            <div className="text-sm text-muted-foreground">
+                              Credits: {subject.credits}
+                            </div>
+                          </CardContent>
+                          <CardFooter>
+                            <Button
+                              variant="outline"
+                              onClick={handleScanClick}
+                              className="w-full"
+                            >
+                              <QrCode className="h-4 w-4 mr-2" />
+                              Mark Attendance
+                            </Button>
+                          </CardFooter>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Enrolled Events */}
+              {enrolledEvents.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <CalendarDays className="h-5 w-5 mr-2" />
+                      My Registered Events
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {enrolledEvents.map((event) => (
+                        <Card
+                          key={event.id}
+                          className="border-l-4 border-l-secondary"
+                        >
+                          <CardContent className="pt-4">
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <h4 className="font-medium">{event.title}</h4>
+                                {event.description && (
+                                  <p className="text-sm text-muted-foreground mt-1">
+                                    {event.description}
+                                  </p>
+                                )}
+                                <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                                  <div className="flex items-center gap-1">
+                                    <Clock className="h-3 w-3" />
+                                    <span>
+                                      {formatDateTime(event.start_datetime)}
+                                    </span>
+                                  </div>
+                                  {event.location && (
+                                    <div className="flex items-center gap-1">
+                                      <MapPin className="h-3 w-3" />
+                                      <span>{event.location}</span>
+                                    </div>
+                                  )}
+                                </div>
+                                {event.teacher && (
+                                  <div className="flex items-center gap-2 mt-2">
+                                    <Avatar className="h-6 w-6">
+                                      <AvatarImage
+                                        src={event.teacher.image_url}
+                                      />
+                                      <AvatarFallback>
+                                        {event.teacher.name?.charAt(0) || "T"}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-sm">
+                                      {event.teacher.name}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex flex-col items-end gap-2">
+                                {event.attendance_credit && (
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-xs"
+                                  >
+                                    Credit
+                                  </Badge>
+                                )}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleScanClick}
+                                >
+                                  <QrCode className="h-4 w-4 mr-1" />
+                                  Attend
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </CardContent>
                 </Card>
-              </div>
-            </Card>
+              )}
+            </div>
           </TabsContent>
 
-          <TabsContent value="history" className="space-y-6">
-            <Card className="p-6">
-              <h2 className="text-2xl font-bold mb-4">Attendance History</h2>
-              <ScrollArea className="h-[500px] pr-4">
-                <div className="space-y-4">
-                  {attendanceHistory.map((record, index) => (
-                    <div
-                      key={index}
-                      className="flex justify-between items-center p-4 bg-muted rounded-lg"
-                    >
-                      <div>
-                        <h3 className="font-medium">{record.class}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {record.date} at {record.time}
-                        </p>
-                      </div>
-                      <Badge
-                        variant={
-                          record.status === "present"
-                            ? "default"
-                            : "destructive"
-                        }
-                      >
-                        {record.status}
-                      </Badge>
-                    </div>
-                  ))}
+          <TabsContent value="registration">
+            <CourseRegistration
+              onRegistrationComplete={handleRegistrationComplete}
+            />
+          </TabsContent>
+
+          <TabsContent value="scanner">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <QrCode className="h-5 w-5 mr-2" />
+                  QR Code Scanner
+                </CardTitle>
+                <CardDescription>
+                  Scan QR codes to mark your attendance
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8">
+                  <Button onClick={handleScanClick} size="lg">
+                    <QrCode className="h-5 w-5 mr-2" />
+                    Open QR Scanner
+                  </Button>
                 </div>
-              </ScrollArea>
+              </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
       </main>
-
-      <QrScanner
-        open={showScanner}
-        onClose={() => setShowScanner(false)}
-        onSuccess={handleQRSuccess}
-      />
     </div>
   );
-};
+}
 
+export { StudentDashboard };
 export default StudentDashboard;

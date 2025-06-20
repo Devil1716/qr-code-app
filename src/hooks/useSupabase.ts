@@ -1,5 +1,10 @@
 import { useState, useEffect } from "react";
-import { SupabaseClient } from "@/lib/api/supabase-client";
+import { supabase } from "@/lib/supabase";
+import * as supabaseClient from "@/lib/api/supabase-client";
+
+export function useSupabase() {
+  return { supabase };
+}
 
 export function useUsers() {
   const [users, setUsers] = useState([]);
@@ -9,7 +14,7 @@ export function useUsers() {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const { data, error } = await SupabaseClient.getUsers();
+      const { data, error } = await supabase.from("users").select("*");
       if (error) throw error;
       setUsers(data || []);
     } catch (err) {
@@ -34,7 +39,7 @@ export function useClasses() {
   const loadClasses = async () => {
     try {
       setLoading(true);
-      const { data, error } = await SupabaseClient.getClasses();
+      const { data, error } = await supabase.from("classes").select("*");
       if (error) throw error;
       setClasses(data || []);
     } catch (err) {
@@ -47,13 +52,20 @@ export function useClasses() {
   useEffect(() => {
     loadClasses();
 
-    // Subscribe to realtime changes
-    const subscription = SupabaseClient.subscribeToClasses(() => {
-      loadClasses();
-    });
+    // Subscribe to realtime changes if needed
+    const channel = supabase
+      .channel("public:classes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "classes" },
+        () => {
+          loadClasses();
+        },
+      )
+      .subscribe();
 
     return () => {
-      subscription.unsubscribe();
+      supabase.removeChannel(channel);
     };
   }, []);
 
@@ -68,7 +80,9 @@ export function useEnrollments() {
   const loadEnrollments = async () => {
     try {
       setLoading(true);
-      const { data, error } = await SupabaseClient.getEnrollments();
+      const { data, error } = await supabase
+        .from("class_enrollments")
+        .select("*");
       if (error) throw error;
       setEnrollments(data || []);
     } catch (err) {
@@ -93,7 +107,9 @@ export function useAttendance() {
   const loadRecords = async () => {
     try {
       setLoading(true);
-      const { data, error } = await SupabaseClient.getAttendanceRecords();
+      const { data, error } = await supabase
+        .from("attendance_records")
+        .select("*");
       if (error) throw error;
       setRecords(data || []);
     } catch (err) {
@@ -106,13 +122,20 @@ export function useAttendance() {
   useEffect(() => {
     loadRecords();
 
-    // Subscribe to realtime changes
-    const subscription = SupabaseClient.subscribeToAttendance(() => {
-      loadRecords();
-    });
+    // Subscribe to realtime changes if needed
+    const channel = supabase
+      .channel("public:attendance_records")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "attendance_records" },
+        () => {
+          loadRecords();
+        },
+      )
+      .subscribe();
 
     return () => {
-      subscription.unsubscribe();
+      supabase.removeChannel(channel);
     };
   }, []);
 

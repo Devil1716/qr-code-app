@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/lib/supabase";
 import { Database } from "@/types/supabase";
+import { getUsers } from "@/lib/api/supabase-client";
 
 type User = Database["public"]["Tables"]["users"]["Row"];
 
@@ -39,16 +40,14 @@ export function UsersTable() {
     teacher_id: "",
     department: "",
   });
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const loadUsers = async () => {
-    const { data, error } = await supabase.from("users").select("*");
-
-    if (error) {
-      console.error("Error loading users:", error);
-      return;
-    }
-
-    setUsers(data || []);
+    setLoading(true);
+    const data = await getUsers();
+    setUsers(data);
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -56,26 +55,49 @@ export function UsersTable() {
   }, []);
 
   const createUser = async () => {
-    const { data, error } = await supabase.from("users").insert([
-      {
-        ...newUser,
-        id: crypto.randomUUID(),
-      },
-    ]);
+    try {
+      // Validate required fields
+      if (!newUser.name || !newUser.email || !newUser.role) {
+        alert("Name, email and role are required");
+        return;
+      }
 
-    if (error) {
+      // Generate IDs if not provided
+      let userData = { ...newUser };
+      if (userData.role === "student" && !userData.student_id) {
+        userData.student_id = `S${Math.floor(10000 + Math.random() * 90000)}`;
+      } else if (userData.role === "teacher" && !userData.teacher_id) {
+        userData.teacher_id = `T${Math.floor(10000 + Math.random() * 90000)}`;
+      }
+
+      const { data, error } = await supabase.from("users").insert([userData]);
+
+      if (error) {
+        console.error("Error creating user:", error);
+        return;
+      }
+
+      // Reset form and reload users
+      setNewUser({
+        name: "",
+        email: "",
+        role: "student",
+        student_id: "",
+        teacher_id: "",
+        department: "",
+      });
+      setDialogOpen(false);
+      loadUsers();
+    } catch (error) {
       console.error("Error creating user:", error);
-      return;
     }
-
-    loadUsers();
   };
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Users</h2>
-        <Dialog>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button>Add User</Button>
           </DialogTrigger>
@@ -109,7 +131,7 @@ export function UsersTable() {
                 <Label>Role</Label>
                 <Select
                   value={newUser.role}
-                  onValueChange={(value: "teacher" | "student") =>
+                  onValueChange={(value: "teacher" | "student" | "admin") =>
                     setNewUser({ ...newUser, role: value })
                   }
                 >
@@ -117,17 +139,28 @@ export function UsersTable() {
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="teacher">Teacher</SelectItem>
                     <SelectItem value="student">Student</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
+              <div className="space-y-2">
+                <Label>Department</Label>
+                <Input
+                  value={newUser.department}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, department: e.target.value })
+                  }
+                />
+              </div>
+
               {newUser.role === "student" && (
                 <div className="space-y-2">
                   <Label>Student ID</Label>
                   <Input
-                    value={newUser.student_id || ""}
+                    value={newUser.student_id}
                     onChange={(e) =>
                       setNewUser({ ...newUser, student_id: e.target.value })
                     }
@@ -139,23 +172,13 @@ export function UsersTable() {
                 <div className="space-y-2">
                   <Label>Teacher ID</Label>
                   <Input
-                    value={newUser.teacher_id || ""}
+                    value={newUser.teacher_id}
                     onChange={(e) =>
                       setNewUser({ ...newUser, teacher_id: e.target.value })
                     }
                   />
                 </div>
               )}
-
-              <div className="space-y-2">
-                <Label>Department</Label>
-                <Input
-                  value={newUser.department || ""}
-                  onChange={(e) =>
-                    setNewUser({ ...newUser, department: e.target.value })
-                  }
-                />
-              </div>
 
               <Button onClick={createUser}>Create User</Button>
             </div>
@@ -175,25 +198,43 @@ export function UsersTable() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {users.map((user) => (
-            <TableRow key={user.id}>
-              <TableCell>{user.name}</TableCell>
-              <TableCell>{user.email}</TableCell>
-              <TableCell>{user.role}</TableCell>
-              <TableCell>
-                {user.role === "student" ? user.student_id : user.teacher_id}
-              </TableCell>
-              <TableCell>{user.department}</TableCell>
-              <TableCell>
-                <Button variant="ghost" size="sm">
-                  Edit
-                </Button>
-                <Button variant="ghost" size="sm" className="text-destructive">
-                  Delete
-                </Button>
+          {loading ? (
+            <TableRow>
+              <TableCell colSpan={6} className="text-center">
+                Loading...
               </TableCell>
             </TableRow>
-          ))}
+          ) : users.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={6} className="text-center">
+                No users found
+              </TableCell>
+            </TableRow>
+          ) : (
+            users.map((user) => (
+              <TableRow key={user.id}>
+                <TableCell>{user.name}</TableCell>
+                <TableCell>{user.email}</TableCell>
+                <TableCell>{user.role}</TableCell>
+                <TableCell>
+                  {user.role === "student" ? user.student_id : user.teacher_id}
+                </TableCell>
+                <TableCell>{user.department}</TableCell>
+                <TableCell>
+                  <Button variant="ghost" size="sm">
+                    Edit
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive"
+                  >
+                    Delete
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
         </TableBody>
       </Table>
     </div>
