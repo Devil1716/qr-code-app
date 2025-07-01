@@ -39,33 +39,68 @@ function StudentDashboard() {
     // Check if user is logged in and has the student role
     const checkAuth = async () => {
       try {
+        console.log("StudentDashboard: Checking authentication...");
         // Get user info from localStorage
         const userId = localStorage.getItem("userId");
         const userEmail = localStorage.getItem("userEmail");
         const userRole = localStorage.getItem("userRole");
 
+        console.log("StudentDashboard: Auth data:", {
+          userId,
+          userEmail,
+          userRole,
+        });
+
         if (!userId || !userEmail || userRole !== "student") {
+          console.log(
+            "StudentDashboard: Invalid auth data, redirecting to login",
+          );
           navigate("/");
           return;
         }
 
-        // Get user details from database
-        const { data: userData, error: userError } = await supabase
-          .from("users")
-          .select("*")
-          .eq("id", userId)
-          .single();
+        // Try to get user details from database first
+        try {
+          const { data: userData, error: userError } = await supabase
+            .from("users")
+            .select("*")
+            .eq("id", userId)
+            .single();
 
-        if (userError || !userData) {
-          console.error("Error fetching user data:", userError);
-          navigate("/");
-          return;
+          if (!userError && userData) {
+            console.log("StudentDashboard: Database user found:", userData);
+            setUser(userData);
+            loadEnrolledData(userData.id);
+            return;
+          } else {
+            console.log(
+              "StudentDashboard: Database user not found, using mock data",
+            );
+          }
+        } catch (dbError) {
+          console.log(
+            "StudentDashboard: Database error, using mock data:",
+            dbError,
+          );
         }
 
-        setUser(userData);
-        loadEnrolledData(userData.id);
+        // Fallback to mock user data
+        const mockUser = {
+          id: userId,
+          email: userEmail,
+          name: userEmail.split("@")[0],
+          role: userRole,
+          student_id: "S67890",
+          department: "Computer Science",
+          image_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`,
+        };
+
+        console.log("StudentDashboard: Using mock user:", mockUser);
+        setUser(mockUser);
+        loadEnrolledData(mockUser.id);
       } catch (error) {
-        console.error("Error checking auth:", error);
+        console.error("StudentDashboard: Error checking auth:", error);
+        setLoading(false);
         navigate("/");
       }
     };

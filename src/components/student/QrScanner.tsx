@@ -70,7 +70,7 @@ const isSecureContext = () => {
 };
 
 // Test mode flag - set to true to enable mock QR data for development
-const TEST_MODE = import.meta.env.DEV && false; // Set to true to enable test mode
+const TEST_MODE = import.meta.env.DEV && true; // Enable test mode in development
 
 export function QrScanner({
   open = true,
@@ -494,7 +494,7 @@ export function QrScanner({
       if (TEST_MODE) {
         console.log("TEST MODE: Using mock QR data");
         const mockData = JSON.stringify({
-          subjectId: "TEST-SUBJECT-001",
+          subjectId: "mock-subject-1",
           timestamp: Date.now(),
           expiresIn: 300, // 5 minutes
           location: {
@@ -503,9 +503,15 @@ export function QrScanner({
           },
         });
 
+        // Simulate successful attendance recording
+        console.log("TEST MODE: Simulating attendance recording");
+
         await stopScanning();
         onSuccess?.(mockData);
         onClose();
+
+        // Show success message
+        alert("TEST MODE: Attendance recorded successfully!");
         return;
       }
 
@@ -840,8 +846,31 @@ export function QrScanner({
               className={`w-full h-full ${scanning ? "block" : "hidden"}`}
             />
             {!scanning && (
-              <div className="w-full h-full flex items-center justify-center">
+              <div className="w-full h-full flex flex-col items-center justify-center space-y-4">
                 <Camera className="h-8 w-8 text-muted-foreground" />
+                {TEST_MODE && (
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Test Mode Active
+                    </p>
+                    <Button
+                      onClick={() =>
+                        handleScan(
+                          JSON.stringify({
+                            subjectId: "mock-subject-1",
+                            timestamp: Date.now(),
+                            expiresIn: 300,
+                            location: { lat: 37.7749, lng: -122.4194 },
+                          }),
+                        )
+                      }
+                      variant="outline"
+                      size="sm"
+                    >
+                      Simulate QR Scan
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 

@@ -12,6 +12,8 @@ export default defineConfig({
     },
   },
   server: {
+    host: true, // Allow external connections
+    port: 5173, // Default Vite port
     // @ts-ignore
     allowedHosts: process.env.TEMPO === "true" ? true : undefined,
   },

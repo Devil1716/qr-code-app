@@ -8,6 +8,7 @@ import { TeacherEntryForm } from "./TeacherEntryForm";
 import { StudentEntryForm } from "./StudentEntryForm";
 import { DataEntryDashboard } from "./DataEntryDashboard";
 import { TimetableManagement } from "./TimetableManagement";
+import { StudentRanking } from "./StudentRanking";
 import {
   Users,
   BookOpen,
@@ -16,6 +17,7 @@ import {
   Upload,
   Database,
   Calendar,
+  Trophy,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -40,7 +42,7 @@ export function AdminDashboard() {
         <h1 className="text-3xl font-bold">Admin Dashboard</h1>
 
         <Tabs defaultValue="users" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-7 h-14">
+          <TabsList className="grid w-full grid-cols-8 h-14">
             <TabsTrigger value="users" className="space-x-2">
               <Users className="h-4 w-4" />
               <span>Users</span>
@@ -72,6 +74,10 @@ export function AdminDashboard() {
             <TabsTrigger value="bulk" className="space-x-2">
               <Upload className="h-4 w-4" />
               <span>Bulk Import</span>
+            </TabsTrigger>
+            <TabsTrigger value="rankings" className="space-x-2">
+              <Trophy className="h-4 w-4" />
+              <span>Rankings</span>
             </TabsTrigger>
           </TabsList>
 
@@ -105,6 +111,10 @@ export function AdminDashboard() {
 
           <TabsContent value="bulk">
             <DataEntryDashboard />
+          </TabsContent>
+
+          <TabsContent value="rankings">
+            <StudentRanking />
           </TabsContent>
         </Tabs>
       </div>
