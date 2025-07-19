@@ -1,4 +1,4 @@
-import LoginPage from "./components/auth/LoginPage";
+import TeacherDashboard from "./components/home";
 export default function App() {
-  return <LoginPage />;
+  return <TeacherDashboard />;
 }
