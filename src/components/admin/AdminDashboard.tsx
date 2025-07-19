@@ -8,7 +8,7 @@ import { TeacherEntryForm } from "./TeacherEntryForm";
 import { StudentEntryForm } from "./StudentEntryForm";
 import { DataEntryDashboard } from "./DataEntryDashboard";
 import { TimetableManagement } from "./TimetableManagement";
-import { StudentRanking } from "./StudentRanking";
+import MockDataTest from "../test/MockDataTest";
 import {
   Users,
   BookOpen,
@@ -17,7 +17,7 @@ import {
   Upload,
   Database,
   Calendar,
-  Trophy,
+  TestTube,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -41,8 +41,12 @@ export function AdminDashboard() {
       <div className="container mx-auto py-6 space-y-6">
         <h1 className="text-3xl font-bold">Admin Dashboard</h1>
 
-        <Tabs defaultValue="users" className="space-y-4">
+        <Tabs defaultValue="test" className="space-y-4">
           <TabsList className="grid w-full grid-cols-8 h-14">
+            <TabsTrigger value="test" className="space-x-2">
+              <TestTube className="h-4 w-4" />
+              <span>Test Data</span>
+            </TabsTrigger>
             <TabsTrigger value="users" className="space-x-2">
               <Users className="h-4 w-4" />
               <span>Users</span>
@@ -75,11 +79,11 @@ export function AdminDashboard() {
               <Upload className="h-4 w-4" />
               <span>Bulk Import</span>
             </TabsTrigger>
-            <TabsTrigger value="rankings" className="space-x-2">
-              <Trophy className="h-4 w-4" />
-              <span>Rankings</span>
-            </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="test">
+            <MockDataTest />
+          </TabsContent>
 
           <TabsContent value="users">
             <UsersTable />
@@ -111,10 +115,6 @@ export function AdminDashboard() {
 
           <TabsContent value="bulk">
             <DataEntryDashboard />
-          </TabsContent>
-
-          <TabsContent value="rankings">
-            <StudentRanking />
           </TabsContent>
         </Tabs>
       </div>

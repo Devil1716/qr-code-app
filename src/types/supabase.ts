@@ -12,7 +12,7 @@ export type Database = {
       attendance_records: {
         Row: {
           class_id: string
-          created_at: string
+          created_at: string | null
           id: string
           location_lat: number | null
           location_lng: number | null
@@ -21,7 +21,7 @@ export type Database = {
         }
         Insert: {
           class_id: string
-          created_at?: string
+          created_at?: string | null
           id?: string
           location_lat?: number | null
           location_lng?: number | null
@@ -30,7 +30,7 @@ export type Database = {
         }
         Update: {
           class_id?: string
-          created_at?: string
+          created_at?: string | null
           id?: string
           location_lat?: number | null
           location_lng?: number | null
@@ -57,19 +57,19 @@ export type Database = {
       class_enrollments: {
         Row: {
           class_id: string
-          created_at: string
+          created_at: string | null
           id: string
           student_id: string
         }
         Insert: {
           class_id: string
-          created_at?: string
+          created_at?: string | null
           id?: string
           student_id: string
         }
         Update: {
           class_id?: string
-          created_at?: string
+          created_at?: string | null
           id?: string
           student_id?: string
         }
@@ -93,7 +93,7 @@ export type Database = {
       classes: {
         Row: {
           capacity: number | null
-          created_at: string
+          created_at: string | null
           end_time: string
           id: string
           room: string
@@ -103,7 +103,7 @@ export type Database = {
         }
         Insert: {
           capacity?: number | null
-          created_at?: string
+          created_at?: string | null
           end_time: string
           id?: string
           room: string
@@ -113,7 +113,7 @@ export type Database = {
         }
         Update: {
           capacity?: number | null
-          created_at?: string
+          created_at?: string | null
           end_time?: string
           id?: string
           room?: string
@@ -133,34 +133,37 @@ export type Database = {
       }
       users: {
         Row: {
-          created_at: string
+          created_at: string | null
           department: string | null
           email: string
           id: string
           image_url: string | null
           name: string
+          password: string
           role: string
           student_id: string | null
           teacher_id: string | null
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           department?: string | null
           email: string
           id?: string
           image_url?: string | null
           name: string
+          password: string
           role: string
           student_id?: string | null
           teacher_id?: string | null
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           department?: string | null
           email?: string
           id?: string
           image_url?: string | null
           name?: string
+          password?: string
           role?: string
           student_id?: string | null
           teacher_id?: string | null
