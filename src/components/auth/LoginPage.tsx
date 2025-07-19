@@ -17,6 +17,15 @@ import { Shield } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 const LoginPage = () => {
-  return <div>Login Page Minimal Render</div>;
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="w-full max-w-md border p-4 rounded">
+        <div className="text-center space-y-2">
+          <h1 className="text-3xl font-bold">Welcome</h1>
+          <div>QR-Based Attendance System</div>
+        </div>
+      </div>
+    </div>
+  );
 };
 export default LoginPage;
