@@ -12,12 +12,15 @@ while True:
     audio = get_audio_sample(duration=1)
     face_data = detect_faces_and_liveness(frame)
     gesture_data = detect_gestures(frame)
+    # Simple audio analysis: mean volume
+    audio_level = float(abs(audio).mean())
     event = {
         'timestamp': time.time(),
         'zone': 'A',
         **face_data,
         **gesture_data,
-        'audio_level': float(abs(audio).mean()),
+        'audio_level': audio_level,
+        # Add more fields as needed
     }
     print('Sending event:', event)
     try:
