@@ -109,6 +109,7 @@ const LoginPage = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Login attempt:', { email, password });
 
     // Check if user is blocked due to too many attempts
     if (isBlocked) {
@@ -135,6 +136,7 @@ const LoginPage = () => {
         .select("*")
         .eq("email", normalizedEmail)
         .single();
+      console.log('Supabase response:', { dbUser, dbError });
 
       if (!dbError && dbUser) {
         // Check if user has a custom password or uses the default system
@@ -183,10 +185,13 @@ const LoginPage = () => {
         // Navigate based on role
         setLoading(false);
         if (dbUser.role === "admin") {
+          console.log('Navigating to /admin');
           navigate("/admin", { replace: true });
         } else if (dbUser.role === "teacher") {
+          console.log('Navigating to /teacher');
           navigate("/teacher", { replace: true });
         } else if (dbUser.role === "student") {
+          console.log('Navigating to /student');
           navigate("/student", { replace: true });
         }
         return;
@@ -246,10 +251,13 @@ const LoginPage = () => {
       // Immediate navigation
       setLoading(false);
       if (mockUser.role === "admin") {
+        console.log('Navigating to /admin (mock)');
         navigate("/admin", { replace: true });
       } else if (mockUser.role === "teacher") {
+        console.log('Navigating to /teacher (mock)');
         navigate("/teacher", { replace: true });
       } else if (mockUser.role === "student") {
+        console.log('Navigating to /student (mock)');
         navigate("/student", { replace: true });
       }
       return;
