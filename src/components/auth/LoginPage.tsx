@@ -66,7 +66,7 @@ const LoginPage = () => {
     };
 
     checkExistingSession();
-  }, []); // FIX: Only run once on mount
+  }, []); // Only run once on mount
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -105,7 +105,7 @@ const LoginPage = () => {
     };
 
     initializeDatabase();
-  }, []);
+  }, []); // Only run once on mount
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
