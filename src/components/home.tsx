@@ -273,6 +273,11 @@ const TeacherDashboard = () => {
               totalStudents={totalStudents}
             />
             <AttendanceMonitor
+              sessionId={
+                subjects.length > 0
+                  ? "00000000-0000-0000-0000-000000000031"
+                  : undefined
+              }
               students={attendanceData.map((record) => ({
                 id: record.student_id,
                 name: record.users?.name || "Unknown Student",

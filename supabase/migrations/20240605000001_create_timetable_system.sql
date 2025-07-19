@@ -1,7 +1,44 @@
 -- Create comprehensive timetable system based on PDF reference
 
+-- Create attendance_sessions table if it doesn't exist (from initial schema)
+CREATE TABLE IF NOT EXISTS attendance_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  class_id UUID REFERENCES classes(id),
+  teacher_id UUID REFERENCES users(id),
+  session_date DATE NOT NULL,
+  start_time TIME,
+  end_time TIME,
+  qr_code TEXT,
+  location TEXT,
+  geofence_latitude DECIMAL,
+  geofence_longitude DECIMAL,
+  geofence_radius DECIMAL DEFAULT 5.0,
+  is_active BOOLEAN DEFAULT false,
+  expires_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Create attendance_records table if it doesn't exist (from initial schema)
+CREATE TABLE IF NOT EXISTS attendance_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID REFERENCES attendance_sessions(id),
+  class_id UUID REFERENCES classes(id),
+  student_id UUID NOT NULL REFERENCES users(id),
+  attendance_status TEXT NOT NULL CHECK (attendance_status IN ('present', 'absent', 'proxy_attempt')),
+  is_manual BOOLEAN DEFAULT false,
+  marked_by UUID REFERENCES users(id),
+  location_latitude DECIMAL,
+  location_longitude DECIMAL,
+  distance_from_geofence DECIMAL,
+  recorded_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
 -- First, update users table to support case-insensitive emails and new user accounts
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS image_url TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP WITH TIME ZONE;
 
 -- Create function to normalize emails to lowercase
 CREATE OR REPLACE FUNCTION normalize_email()
@@ -370,6 +407,83 @@ ON CONFLICT (id) DO UPDATE SET
   location_longitude = EXCLUDED.location_longitude,
   distance_from_geofence = EXCLUDED.distance_from_geofence;
 
+-- Create engagement monitoring tables
+CREATE TABLE IF NOT EXISTS classroom_zones (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID REFERENCES attendance_sessions(id),
+  zone_name TEXT NOT NULL, -- 'Zone A', 'Zone B', etc.
+  zone_coordinates JSONB, -- Seating map coordinates
+  capacity INTEGER DEFAULT 10,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Create engagement records table for real-time monitoring
+CREATE TABLE IF NOT EXISTS engagement_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID REFERENCES attendance_sessions(id),
+  zone_id UUID REFERENCES classroom_zones(id),
+  timestamp TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  attention_score DECIMAL(3,2) CHECK (attention_score >= 0 AND attention_score <= 1),
+  participation_score DECIMAL(3,2) CHECK (participation_score >= 0 AND participation_score <= 1),
+  confusion_level DECIMAL(3,2) CHECK (confusion_level >= 0 AND confusion_level <= 1),
+  audio_sentiment DECIMAL(3,2) CHECK (audio_sentiment >= -1 AND audio_sentiment <= 1),
+  noise_level DECIMAL(3,2) CHECK (noise_level >= 0 AND noise_level <= 1),
+  face_presence_count INTEGER DEFAULT 0,
+  hand_raise_count INTEGER DEFAULT 0,
+  posture_engagement DECIMAL(3,2) CHECK (posture_engagement >= 0 AND posture_engagement <= 1),
+  processed_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Create quiz responses table
+CREATE TABLE IF NOT EXISTS quiz_responses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID REFERENCES attendance_sessions(id),
+  student_id UUID REFERENCES users(id),
+  quiz_question TEXT NOT NULL,
+  student_response TEXT,
+  correct_answer TEXT,
+  is_correct BOOLEAN,
+  response_time_seconds INTEGER,
+  confidence_level DECIMAL(3,2) CHECK (confidence_level >= 0 AND confidence_level <= 1),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Create engagement alerts table
+CREATE TABLE IF NOT EXISTS engagement_alerts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID REFERENCES attendance_sessions(id),
+  zone_id UUID REFERENCES classroom_zones(id),
+  alert_type TEXT NOT NULL CHECK (alert_type IN ('disengagement', 'confusion_spike', 'low_participation', 'noise_disruption')),
+  severity TEXT NOT NULL CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+  message TEXT NOT NULL,
+  threshold_value DECIMAL(3,2),
+  current_value DECIMAL(3,2),
+  is_resolved BOOLEAN DEFAULT false,
+  resolved_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Create session summaries table for LMS export
+CREATE TABLE IF NOT EXISTS session_summaries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID REFERENCES attendance_sessions(id),
+  total_students INTEGER,
+  average_attention DECIMAL(3,2),
+  average_participation DECIMAL(3,2),
+  confusion_incidents INTEGER,
+  intervention_count INTEGER,
+  quiz_completion_rate DECIMAL(3,2),
+  overall_engagement_score DECIMAL(3,2),
+  summary_data JSONB,
+  exported_to_lms BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Add engagement columns to attendance_sessions
+ALTER TABLE attendance_sessions ADD COLUMN IF NOT EXISTS engagement_monitoring_enabled BOOLEAN DEFAULT true;
+ALTER TABLE attendance_sessions ADD COLUMN IF NOT EXISTS privacy_consent_required BOOLEAN DEFAULT true;
+ALTER TABLE attendance_sessions ADD COLUMN IF NOT EXISTS video_processing_mode TEXT DEFAULT 'edge' CHECK (video_processing_mode IN ('edge', 'on_prem', 'cloud'));
+
 -- Enable realtime for new tables
 alter publication supabase_realtime add table slots;
 alter publication supabase_realtime add table subjects;
@@ -378,6 +492,187 @@ alter publication supabase_realtime add table temporary_classes;
 alter publication supabase_realtime add table student_subject_registrations;
 alter publication supabase_realtime add table temporary_class_registrations;
 alter publication supabase_realtime add table security_logs;
+alter publication supabase_realtime add table classroom_zones;
+alter publication supabase_realtime add table engagement_records;
+alter publication supabase_realtime add table quiz_responses;
+alter publication supabase_realtime add table engagement_alerts;
+alter publication supabase_realtime add table session_summaries;
+
+-- Insert sample classroom zones for testing
+INSERT INTO classroom_zones (id, session_id, zone_name, zone_coordinates, capacity) VALUES
+('00000000-0000-0000-0000-000000000051', '00000000-0000-0000-0000-000000000031', 'Zone A', '{"x1": 0, "y1": 0, "x2": 50, "y2": 50}', 15),
+('00000000-0000-0000-0000-000000000052', '00000000-0000-0000-0000-000000000031', 'Zone B', '{"x1": 50, "y1": 0, "x2": 100, "y2": 50}', 15),
+('00000000-0000-0000-0000-000000000053', '00000000-0000-0000-0000-000000000031', 'Zone C', '{"x1": 0, "y1": 50, "x2": 50, "y2": 100}', 15),
+('00000000-0000-0000-0000-000000000054', '00000000-0000-0000-0000-000000000031', 'Zone D', '{"x1": 50, "y1": 50, "x2": 100, "y2": 100}', 15)
+ON CONFLICT (id) DO UPDATE SET
+  zone_name = EXCLUDED.zone_name,
+  zone_coordinates = EXCLUDED.zone_coordinates,
+  capacity = EXCLUDED.capacity;
+
+-- Insert sample engagement records
+INSERT INTO engagement_records (id, session_id, zone_id, attention_score, participation_score, confusion_level, audio_sentiment, noise_level, face_presence_count, hand_raise_count, posture_engagement) VALUES
+('00000000-0000-0000-0000-000000000061', '00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000051', 0.85, 0.75, 0.15, 0.6, 0.3, 12, 2, 0.8),
+('00000000-0000-0000-0000-000000000062', '00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000052', 0.45, 0.35, 0.65, -0.2, 0.7, 8, 0, 0.4),
+('00000000-0000-0000-0000-000000000063', '00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000053', 0.92, 0.88, 0.08, 0.8, 0.2, 14, 4, 0.95),
+('00000000-0000-0000-0000-000000000064', '00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000054', 0.78, 0.65, 0.25, 0.4, 0.4, 11, 1, 0.7)
+ON CONFLICT (id) DO UPDATE SET
+  attention_score = EXCLUDED.attention_score,
+  participation_score = EXCLUDED.participation_score,
+  confusion_level = EXCLUDED.confusion_level,
+  audio_sentiment = EXCLUDED.audio_sentiment,
+  noise_level = EXCLUDED.noise_level,
+  face_presence_count = EXCLUDED.face_presence_count,
+  hand_raise_count = EXCLUDED.hand_raise_count,
+  posture_engagement = EXCLUDED.posture_engagement;
+
+-- Insert sample engagement alerts
+INSERT INTO engagement_alerts (id, session_id, zone_id, alert_type, severity, message, threshold_value, current_value) VALUES
+('00000000-0000-0000-0000-000000000071', '00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000052', 'disengagement', 'high', 'Zone B showing low attention and participation levels', 0.6, 0.4),
+('00000000-0000-0000-0000-000000000072', '00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000052', 'confusion_spike', 'medium', 'Confusion levels elevated in Zone B', 0.5, 0.65),
+('00000000-0000-0000-0000-000000000073', '00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000052', 'noise_disruption', 'medium', 'Elevated noise levels detected in Zone B', 0.5, 0.7)
+ON CONFLICT (id) DO UPDATE SET
+  alert_type = EXCLUDED.alert_type,
+  severity = EXCLUDED.severity,
+  message = EXCLUDED.message,
+  threshold_value = EXCLUDED.threshold_value,
+  current_value = EXCLUDED.current_value;
+
+-- Create intervention records table for targeted interventions
+CREATE TABLE IF NOT EXISTS intervention_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID REFERENCES attendance_sessions(id),
+  zone_id UUID REFERENCES classroom_zones(id),
+  intervention_type TEXT NOT NULL CHECK (intervention_type IN ('attention_boost', 'participation_prompt', 'confusion_help', 'gamification')),
+  message TEXT NOT NULL,
+  sent_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  effectiveness_score DECIMAL(3,2) CHECK (effectiveness_score >= 0 AND effectiveness_score <= 1),
+  student_responses JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Create gamification records table
+CREATE TABLE IF NOT EXISTS gamification_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID REFERENCES attendance_sessions(id),
+  student_id UUID REFERENCES users(id),
+  activity_type TEXT NOT NULL CHECK (activity_type IN ('attention_game', 'quick_poll', 'team_challenge', 'knowledge_race')),
+  points_earned INTEGER DEFAULT 0,
+  completion_status TEXT DEFAULT 'in_progress' CHECK (completion_status IN ('in_progress', 'completed', 'failed')),
+  performance_data JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Create predictive analytics table for AI-driven insights
+CREATE TABLE IF NOT EXISTS predictive_insights (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID REFERENCES attendance_sessions(id),
+  insight_type TEXT NOT NULL CHECK (insight_type IN ('attention_drop_prediction', 'confusion_forecast', 'optimal_break_time', 'engagement_pattern')),
+  prediction_data JSONB NOT NULL,
+  confidence_score DECIMAL(3,2) CHECK (confidence_score >= 0 AND confidence_score <= 1),
+  recommended_action TEXT,
+  is_acted_upon BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Create adaptive learning table for personalized interventions
+CREATE TABLE IF NOT EXISTS adaptive_learning_profiles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID REFERENCES users(id),
+  learning_style TEXT CHECK (learning_style IN ('visual', 'auditory', 'kinesthetic', 'mixed')),
+  attention_pattern JSONB, -- Peak attention times, duration patterns
+  intervention_preferences JSONB, -- Which interventions work best
+  engagement_triggers JSONB, -- What motivates this student
+  performance_history JSONB,
+  last_updated TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Create real-time collaboration table for peer learning
+CREATE TABLE IF NOT EXISTS collaboration_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID REFERENCES attendance_sessions(id),
+  collaboration_type TEXT NOT NULL CHECK (collaboration_type IN ('peer_tutoring', 'group_discussion', 'collaborative_problem_solving')),
+  participants JSONB NOT NULL, -- Array of student IDs
+  topic TEXT,
+  start_time TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  end_time TIMESTAMP WITH TIME ZONE,
+  effectiveness_metrics JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Create emotional intelligence tracking table
+CREATE TABLE IF NOT EXISTS emotional_intelligence_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID REFERENCES attendance_sessions(id),
+  zone_id UUID REFERENCES classroom_zones(id),
+  timestamp TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  stress_level DECIMAL(3,2) CHECK (stress_level >= 0 AND stress_level <= 1),
+  frustration_level DECIMAL(3,2) CHECK (frustration_level >= 0 AND frustration_level <= 1),
+  excitement_level DECIMAL(3,2) CHECK (excitement_level >= 0 AND excitement_level <= 1),
+  confidence_level DECIMAL(3,2) CHECK (confidence_level >= 0 AND confidence_level <= 1),
+  social_engagement DECIMAL(3,2) CHECK (social_engagement >= 0 AND social_engagement <= 1),
+  recommended_intervention TEXT
+);
+
+-- Enable realtime for new innovative tables
+alter publication supabase_realtime add table intervention_records;
+alter publication supabase_realtime add table gamification_records;
+alter publication supabase_realtime add table predictive_insights;
+alter publication supabase_realtime add table adaptive_learning_profiles;
+alter publication supabase_realtime add table collaboration_sessions;
+alter publication supabase_realtime add table emotional_intelligence_records;
+
+-- Insert sample intervention records
+INSERT INTO intervention_records (id, session_id, zone_id, intervention_type, message, effectiveness_score) VALUES
+('00000000-0000-0000-0000-000000000081', '00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000052', 'attention_boost', 'Quick attention check! Can everyone look at the board?', 0.75),
+('00000000-0000-0000-0000-000000000082', '00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000053', 'confusion_help', 'Let\'s clarify this concept with a quick example', 0.85),
+('00000000-0000-0000-0000-000000000083', '00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000051', 'participation_prompt', 'Who can share their thoughts on this topic?', 0.65)
+ON CONFLICT (id) DO UPDATE SET
+  intervention_type = EXCLUDED.intervention_type,
+  message = EXCLUDED.message,
+  effectiveness_score = EXCLUDED.effectiveness_score;
+
+-- Insert sample gamification records
+INSERT INTO gamification_records (id, session_id, student_id, activity_type, points_earned, completion_status) VALUES
+('00000000-0000-0000-0000-000000000091', '00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000003', 'attention_game', 50, 'completed'),
+('00000000-0000-0000-0000-000000000092', '00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000003', 'quick_poll', 25, 'completed'),
+('00000000-0000-0000-0000-000000000093', '00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000003', 'team_challenge', 75, 'in_progress')
+ON CONFLICT (id) DO UPDATE SET
+  activity_type = EXCLUDED.activity_type,
+  points_earned = EXCLUDED.points_earned,
+  completion_status = EXCLUDED.completion_status;
+
+-- Insert sample predictive insights
+INSERT INTO predictive_insights (id, session_id, insight_type, prediction_data, confidence_score, recommended_action) VALUES
+('00000000-0000-0000-0000-000000000101', '00000000-0000-0000-0000-000000000031', 'attention_drop_prediction', '{"predicted_time": "10:15", "zones_affected": ["Zone B", "Zone C"], "severity": "medium"}', 0.78, 'Schedule interactive activity at 10:10'),
+('00000000-0000-0000-0000-000000000102', '00000000-0000-0000-0000-000000000031', 'optimal_break_time', '{"recommended_time": "10:20", "duration": 5, "reason": "cognitive_load_peak"}', 0.85, 'Take 5-minute break for cognitive reset'),
+('00000000-0000-0000-0000-000000000103', '00000000-0000-0000-0000-000000000031', 'engagement_pattern', '{"peak_times": ["09:15", "10:45"], "low_times": ["09:45", "11:15"], "pattern": "cyclical"}', 0.92, 'Schedule key concepts during peak engagement times')
+ON CONFLICT (id) DO UPDATE SET
+  insight_type = EXCLUDED.insight_type,
+  prediction_data = EXCLUDED.prediction_data,
+  confidence_score = EXCLUDED.confidence_score,
+  recommended_action = EXCLUDED.recommended_action;
+
+-- Insert sample adaptive learning profiles
+INSERT INTO adaptive_learning_profiles (id, student_id, learning_style, attention_pattern, intervention_preferences) VALUES
+('00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000003', 'visual', '{"peak_attention": ["09:00-09:30", "10:30-11:00"], "attention_span": 25, "optimal_break_frequency": 20}', '{"preferred_interventions": ["visual_cues", "gamification"], "effective_rewards": ["points", "badges"], "communication_style": "direct"}')
+ON CONFLICT (id) DO UPDATE SET
+  learning_style = EXCLUDED.learning_style,
+  attention_pattern = EXCLUDED.attention_pattern,
+  intervention_preferences = EXCLUDED.intervention_preferences;
+
+-- Insert sample emotional intelligence records
+INSERT INTO emotional_intelligence_records (id, session_id, zone_id, stress_level, frustration_level, excitement_level, confidence_level, social_engagement, recommended_intervention) VALUES
+('00000000-0000-0000-0000-000000000121', '00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000051', 0.2, 0.1, 0.8, 0.7, 0.9, 'maintain_current_approach'),
+('00000000-0000-0000-0000-000000000122', '00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000052', 0.7, 0.6, 0.2, 0.3, 0.4, 'stress_reduction_break'),
+('00000000-0000-0000-0000-000000000123', '00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000053', 0.3, 0.4, 0.6, 0.8, 0.7, 'encourage_participation')
+ON CONFLICT (id) DO UPDATE SET
+  stress_level = EXCLUDED.stress_level,
+  frustration_level = EXCLUDED.frustration_level,
+  excitement_level = EXCLUDED.excitement_level,
+  confidence_level = EXCLUDED.confidence_level,
+  social_engagement = EXCLUDED.social_engagement,
+  recommended_intervention = EXCLUDED.recommended_intervention;
 
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_slots_day_time ON slots(day_of_week, start_time);
@@ -391,6 +686,21 @@ CREATE INDEX IF NOT EXISTS idx_security_logs_timestamp ON security_logs(timestam
 CREATE INDEX IF NOT EXISTS idx_security_logs_event_type ON security_logs(event_type);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_engagement_records_session ON engagement_records(session_id);
+CREATE INDEX IF NOT EXISTS idx_engagement_records_timestamp ON engagement_records(timestamp);
+CREATE INDEX IF NOT EXISTS idx_engagement_alerts_session ON engagement_alerts(session_id);
+CREATE INDEX IF NOT EXISTS idx_engagement_alerts_unresolved ON engagement_alerts(is_resolved) WHERE is_resolved = false;
+CREATE INDEX IF NOT EXISTS idx_quiz_responses_session ON quiz_responses(session_id);
+CREATE INDEX IF NOT EXISTS idx_classroom_zones_session ON classroom_zones(session_id);
+CREATE INDEX IF NOT EXISTS idx_intervention_records_session ON intervention_records(session_id);
+CREATE INDEX IF NOT EXISTS idx_intervention_records_zone ON intervention_records(zone_id);
+CREATE INDEX IF NOT EXISTS idx_gamification_records_session ON gamification_records(session_id);
+CREATE INDEX IF NOT EXISTS idx_gamification_records_student ON gamification_records(student_id);
+CREATE INDEX IF NOT EXISTS idx_predictive_insights_session ON predictive_insights(session_id);
+CREATE INDEX IF NOT EXISTS idx_adaptive_learning_student ON adaptive_learning_profiles(student_id);
+CREATE INDEX IF NOT EXISTS idx_collaboration_sessions_session ON collaboration_sessions(session_id);
+CREATE INDEX IF NOT EXISTS idx_emotional_intelligence_session ON emotional_intelligence_records(session_id);
+CREATE INDEX IF NOT EXISTS idx_emotional_intelligence_timestamp ON emotional_intelligence_records(timestamp);
 
 -- Create view for student timetables
 CREATE OR REPLACE VIEW student_timetables AS
