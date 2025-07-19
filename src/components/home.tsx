@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import TeacherHeader from "./dashboard/TeacherHeader";
-import PersonalInfoCard from "./dashboard/PersonalInfoCard";
-import ClassScheduleGrid from "./dashboard/ClassScheduleGrid";
-import AttendanceMonitor from "./dashboard/AttendanceMonitor";
+import TeacherHeader from "./teacher/TeacherHeader";
+import PersonalInfoCard from "./teacher/PersonalInfoCard";
+import ClassScheduleGrid from "./teacher/ClassScheduleGrid";
+import AttendanceMonitor from "./teacher/AttendanceMonitor";
 import {
   Dialog,
   DialogContent,
