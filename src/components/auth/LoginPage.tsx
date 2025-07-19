@@ -66,7 +66,7 @@ const LoginPage = () => {
     };
 
     checkExistingSession();
-  }, [navigate, checkSessionValidity]);
+  }, []); // FIX: Only run once on mount
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
