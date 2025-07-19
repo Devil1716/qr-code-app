@@ -21,52 +21,52 @@ const LoginPage = () => {
   const { checkSessionValidity } = useAuth();
 
   // Check if user is already logged in with valid session
-  useEffect(() => {
-    const checkExistingSession = async () => {
-      try {
-        const userRole = localStorage.getItem("userRole");
-        const loginTimestamp = localStorage.getItem("loginTimestamp");
-        const userId = localStorage.getItem("userId");
+  // useEffect(() => {
+  //   const checkExistingSession = async () => {
+  //     try {
+  //       const userRole = localStorage.getItem("userRole");
+  //       const loginTimestamp = localStorage.getItem("loginTimestamp");
+  //       const userId = localStorage.getItem("userId");
 
-        console.log("Checking existing session:", {
-          userRole,
-          loginTimestamp,
-          userId,
-        });
+  //       console.log("Checking existing session:", {
+  //         userRole,
+  //         loginTimestamp,
+  //         userId,
+  //       });
 
-        if (userRole && loginTimestamp && userId) {
-          // Check session validity
-          if (checkSessionValidity()) {
-            console.log("Valid session found, navigating to:", userRole);
-            // Navigate to appropriate dashboard immediately
-            if (userRole === "admin") {
-              navigate("/admin", { replace: true });
-            } else if (userRole === "teacher") {
-              navigate("/teacher", { replace: true });
-            } else if (userRole === "student") {
-              navigate("/student", { replace: true });
-            }
-          } else {
-            console.log("Session expired, clearing storage");
-            // Clear invalid session data
-            localStorage.removeItem("userRole");
-            localStorage.removeItem("userEmail");
-            localStorage.removeItem("userId");
-            localStorage.removeItem("loginTimestamp");
-            localStorage.removeItem("sessionToken");
-          }
-        } else {
-          console.log("No existing session found");
-        }
-      } catch (error) {
-        console.error("Error checking existing session:", error);
-        // Clear potentially corrupted session data
-        localStorage.clear();
-      }
-    };
+  //       if (userRole && loginTimestamp && userId) {
+  //         // Check session validity
+  //         if (checkSessionValidity()) {
+  //           console.log("Valid session found, navigating to:", userRole);
+  //           // Navigate to appropriate dashboard immediately
+  //           if (userRole === "admin") {
+  //             navigate("/admin", { replace: true });
+  //           } else if (userRole === "teacher") {
+  //             navigate("/teacher", { replace: true });
+  //           } else if (userRole === "student") {
+  //             navigate("/student", { replace: true });
+  //           }
+  //         } else {
+  //           console.log("Session expired, clearing storage");
+  //           // Clear invalid session data
+  //           localStorage.removeItem("userRole");
+  //           localStorage.removeItem("userEmail");
+  //           localStorage.removeItem("userId");
+  //           localStorage.removeItem("loginTimestamp");
+  //           localStorage.removeItem("sessionToken");
+  //         }
+  //       } else {
+  //         console.log("No existing session found");
+  //       }
+  //     } catch (error) {
+  //       console.error("Error checking existing session:", error);
+  //       // Clear potentially corrupted session data
+  //       localStorage.clear();
+  //     }
+  //   };
 
-    checkExistingSession();
-  }, []); // Only run once on mount
+  //   checkExistingSession();
+  // }, []); // Only run once on mount
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -76,36 +76,36 @@ const LoginPage = () => {
   const [isBlocked, setIsBlocked] = useState(false);
 
   // Initialize database connection and check for required tables
-  useEffect(() => {
-    const initializeDatabase = async () => {
-      try {
-        console.log("Initializing database connection...");
-        // Test database connection by checking if users table exists
-        const { data, error } = await supabase
-          .from("users")
-          .select("id")
-          .limit(1);
+  // useEffect(() => {
+  //   const initializeDatabase = async () => {
+  //     try {
+  //       console.log("Initializing database connection...");
+  //       // Test database connection by checking if users table exists
+  //       const { data, error } = await supabase
+  //         .from("users")
+  //         .select("id")
+  //         .limit(1);
 
-        if (error) {
-          console.error("Database connection error:", error);
-          console.log(
-            "Database connection failed, but continuing with mock users",
-          );
-          // Don't set error here - allow fallback to mock users
-        } else {
-          console.log("Database connection successful", data);
-        }
-      } catch (err) {
-        console.error("Database initialization error:", err);
-        console.log(
-          "Database initialization failed, but continuing with mock users",
-        );
-        // Don't set error here - allow fallback to mock users
-      }
-    };
+  //       if (error) {
+  //         console.error("Database connection error:", error);
+  //         console.log(
+  //           "Database connection failed, but continuing with mock users",
+  //         );
+  //         // Don't set error here - allow fallback to mock users
+  //       } else {
+  //         console.log("Database connection successful", data);
+  //       }
+  //     } catch (err) {
+  //       console.error("Database initialization error:", err);
+  //       console.log(
+  //         "Database initialization failed, but continuing with mock users",
+  //       );
+  //       // Don't set error here - allow fallback to mock users
+  //     }
+  //   };
 
-    initializeDatabase();
-  }, []); // Only run once on mount
+  //   initializeDatabase();
+  // }, []); // Only run once on mount
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
