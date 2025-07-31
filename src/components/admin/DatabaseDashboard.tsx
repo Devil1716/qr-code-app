@@ -246,7 +246,7 @@ export default function DatabaseDashboard() {
                     onClick={async () => {
                       try {
                         const { data, error } = await supabase
-                          .from("attendance")
+                          .from("attendance_records")
                           .select("*")
                           .limit(5);
                         console.log("Attendance query result:", {

@@ -432,7 +432,7 @@ const AttendanceMonitor = ({
                             ? "default"
                             : student.status === "absent"
                               ? "destructive"
-                              : "warning"
+                              : "outline"
                         }
                       >
                         {student.status.charAt(0).toUpperCase() +
@@ -546,7 +546,6 @@ const AttendanceMonitor = ({
                                 <Progress
                                   value={zone.confusion_level * 100}
                                   className="w-16 h-2"
-                                  indicatorClassName="bg-red-500"
                                 />
                                 <span className="text-xs w-8">
                                   {Math.round(zone.confusion_level * 100)}%

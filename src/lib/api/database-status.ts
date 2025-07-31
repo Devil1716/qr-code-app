@@ -30,7 +30,7 @@ export async function checkDatabaseConnection() {
 export async function getDatabaseStats() {
   try {
     // Get list of tables
-    const tables = ["users", "classes", "attendance", "enrollments"];
+    const tables = ["users", "classes", "attendance_records"];
     const stats = [];
 
     // Get row count for each table

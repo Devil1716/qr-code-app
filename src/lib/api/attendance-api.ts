@@ -104,25 +104,6 @@ export async function getSessionAttendance(sessionId: string) {
 }
 
 /**
- * Get attendance sessions for a class
- */
-export async function getClassSessions(classId: string) {
-  try {
-    const { data, error } = await supabase
-      .from("attendance_sessions")
-      .select("*")
-      .eq("class_id", classId)
-      .order("date", { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error("Error getting class sessions:", error);
-    return [];
-  }
-}
-
-/**
  * Record engagement data from video/audio processing
  */
 export async function recordEngagementData({
@@ -246,11 +227,11 @@ export async function recordQuizResponse({
 export async function getEngagementData(sessionId: string) {
   try {
     const { data, error } = await supabase
-      .from("engagement_records")
+      .from("attendance_records")
       .select(
         `
         *,
-        classroom_zones(zone_name, zone_coordinates)
+        users!attendance_records_student_id_fkey(name, student_id)
       `,
       )
       .eq("session_id", sessionId)
@@ -271,11 +252,11 @@ export async function getEngagementData(sessionId: string) {
 export async function getQuizResponses(sessionId: string) {
   try {
     const { data, error } = await supabase
-      .from("quiz_responses")
+      .from("attendance_records")
       .select(
         `
         *,
-        users!quiz_responses_student_id_fkey(name, student_id)
+        users!attendance_records_student_id_fkey(name, student_id)
       `,
       )
       .eq("session_id", sessionId)
@@ -295,7 +276,7 @@ export async function getQuizResponses(sessionId: string) {
 export async function resolveEngagementAlert(alertId: string) {
   try {
     const { data, error } = await supabase
-      .from("engagement_alerts")
+      .from("attendance_records")
       .update({
         is_resolved: true,
         resolved_at: new Date().toISOString(),
@@ -355,7 +336,7 @@ export async function sendTargetedIntervention({
 export async function getInterventionHistory(sessionId: string) {
   try {
     const { data, error } = await supabase
-      .from("intervention_records")
+      .from("attendance_records")
       .select("*")
       .eq("session_id", sessionId)
       .order("sent_at", { ascending: false })
@@ -463,7 +444,7 @@ export async function generateSessionSummary(sessionId: string) {
 
     // Store summary in database
     const { data, error } = await supabase
-      .from("session_summaries")
+      .from("attendance_records")
       .insert(summaryData)
       .select()
       .single();

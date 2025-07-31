@@ -96,23 +96,19 @@ const TeacherDashboard = () => {
 
         // Load teacher's subjects from the new timetable system
         const { data: teacherSubjects, error: subjectsError } = await supabase
-          .from("subjects")
+          .from("classes")
           .select(
             `
             *,
-            slot_assignments!inner(
-              slots(
-                slot_code,
-                day_of_week,
-                start_time,
-                end_time
-              )
+            class_enrollments!inner(
+              student_id,
+              student_name,
+              student_image_url
             )
           `,
           )
           .eq("teacher_id", userData.id)
-          .eq("is_active", true)
-          .eq("slot_assignments.is_active", true);
+          .eq("is_active", true);
 
         if (subjectsError) {
           console.error("Error fetching teacher subjects:", subjectsError);
@@ -123,10 +119,9 @@ const TeacherDashboard = () => {
           const subjectsWithEnrollment = await Promise.all(
             (teacherSubjects || []).map(async (subject) => {
               const { count } = await supabase
-                .from("student_subject_registrations")
+                .from("class_enrollments")
                 .select("*", { count: "exact", head: true })
-                .eq("subject_id", subject.id)
-                .eq("is_active", true);
+                .eq("class_id", subject.id);
 
               const enrollmentCount = count || 0;
               totalEnrolledStudents += enrollmentCount;
@@ -183,7 +178,7 @@ const TeacherDashboard = () => {
             .select(
               "*, users!attendance_records_student_id_fkey(name, image_url)",
             )
-            .eq("subject_id", activeSubject.id);
+            .eq("class_id", activeSubject.id);
 
           setAttendanceData(attendance || []);
         }
@@ -214,7 +209,7 @@ const TeacherDashboard = () => {
     try {
       // Update subject capacity in the new timetable system
       const { error } = await supabase
-        .from("subjects")
+        .from("classes")
         .update({ student_limit: newCapacity })
         .eq("id", selectedSubject.id);
 
