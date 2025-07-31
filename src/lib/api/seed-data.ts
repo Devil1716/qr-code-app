@@ -49,6 +49,7 @@ export async function seedDatabase() {
         id: "00000000-0000-0000-0000-000000000001",
         name: "Admin User",
         email: "admin@example.com",
+        password: "admin", // Added password for consistency
         role: "admin",
         department: "Administration",
       },
@@ -56,6 +57,7 @@ export async function seedDatabase() {
         id: "00000000-0000-0000-0000-000000000002",
         name: "Dr. Sarah Johnson",
         email: "teacher@example.com",
+        password: "teacher", // Added password for consistency
         role: "teacher",
         department: "Computer Science",
         teacher_id: "T123456",
@@ -64,6 +66,7 @@ export async function seedDatabase() {
         id: "00000000-0000-0000-0000-000000000003",
         name: "John Smith",
         email: "student@example.com",
+        password: "student", // Added password for consistency
         role: "student",
         department: "Computer Science",
         student_id: "S12345",
