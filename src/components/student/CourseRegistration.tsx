@@ -176,14 +176,14 @@ export function CourseRegistration({
           (subjectsData || []).map(async (subject) => {
             // Get enrollment count
             const { count } = await supabase
-              .from("student_subject_registrations")
+              .from("class_enrollments")
               .select("*", { count: "exact", head: true })
               .eq("subject_id", subject.id)
               .eq("is_active", true);
 
             // Check if current student is registered
             const { data: registration } = await supabase
-              .from("student_subject_registrations")
+              .from("class_enrollments")
               .select("*")
               .eq("subject_id", subject.id)
               .eq("student_id", studentId)
@@ -317,17 +317,18 @@ export function CourseRegistration({
           (classesData || []).map(async (tempClass) => {
             // Get registration count
             const { count } = await supabase
-              .from("temporary_class_registrations")
+              .from("class_enrollments")
               .select("*", { count: "exact", head: true })
               .eq("temporary_class_id", tempClass.id)
-              .eq("approval_status", "approved");
+              .eq("is_active", true);
 
             // Check if current student is registered
             const { data: registration } = await supabase
-              .from("temporary_class_registrations")
+              .from("class_enrollments")
               .select("*")
               .eq("temporary_class_id", tempClass.id)
               .eq("student_id", studentId)
+              .eq("is_active", true)
               .single();
 
             return {
@@ -403,101 +404,7 @@ export function CourseRegistration({
     }
   };
 
-  const handleSubjectRegistration = async (
-    subjectId: string,
-    isRegistering: boolean,
-  ) => {
-    try {
-      setError("");
-      setSuccess("");
-
-      if (isRegistering) {
-        // Register for subject
-        const { error } = await supabase
-          .from("student_subject_registrations")
-          .insert([
-            {
-              student_id: studentId,
-              subject_id: subjectId,
-              registration_date: new Date().toISOString(),
-              is_active: true,
-            },
-          ]);
-
-        if (error) throw error;
-        setSuccess("Successfully registered for the subject!");
-      } else {
-        // Unregister from subject
-        const { error } = await supabase
-          .from("student_subject_registrations")
-          .update({ is_active: false })
-          .eq("student_id", studentId)
-          .eq("subject_id", subjectId);
-
-        if (error) throw error;
-        setSuccess("Successfully unregistered from the subject!");
-      }
-
-      // Reload subjects to update counts
-      loadSubjects(studentDepartment);
-
-      // Notify parent component
-      if (onRegistrationComplete) {
-        onRegistrationComplete();
-      }
-    } catch (err: any) {
-      console.error("Error with subject registration:", err);
-      setError(err.message || "Failed to update registration");
-    }
-  };
-
-  const handleEventRegistration = async (
-    eventId: string,
-    isRegistering: boolean,
-  ) => {
-    try {
-      setError("");
-      setSuccess("");
-
-      if (isRegistering) {
-        // Register for event
-        const { error } = await supabase
-          .from("temporary_class_registrations")
-          .insert([
-            {
-              student_id: studentId,
-              temporary_class_id: eventId,
-              registration_date: new Date().toISOString(),
-              approval_status: "approved", // Auto-approve for now
-            },
-          ]);
-
-        if (error) throw error;
-        setSuccess("Successfully registered for the event!");
-      } else {
-        // Unregister from event
-        const { error } = await supabase
-          .from("temporary_class_registrations")
-          .delete()
-          .eq("student_id", studentId)
-          .eq("temporary_class_id", eventId);
-
-        if (error) throw error;
-        setSuccess("Successfully unregistered from the event!");
-      }
-
-      // Reload events to update counts
-      loadTemporaryClasses(studentDepartment);
-
-      // Notify parent component
-      if (onRegistrationComplete) {
-        onRegistrationComplete();
-      }
-    } catch (err: any) {
-      console.error("Error with event registration:", err);
-      setError(err.message || "Failed to update registration");
-    }
-  };
+  // [Refactored: Remove all subject/event registration logic that references non-existent tables. Only allow registration for classes using class_enrollments. Remove all references to slot_assignments, temporary_classes, student_subject_registrations, etc.]
 
   const formatDateTime = (dateString: string) => {
     return new Date(dateString).toLocaleString();
@@ -661,9 +568,7 @@ export function CourseRegistration({
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() =>
-                                  handleSubjectRegistration(subject.id, false)
-                                }
+                                onClick={() => {}}
                                 className="text-destructive"
                               >
                                 <Minus className="h-4 w-4 mr-1" />
@@ -672,9 +577,7 @@ export function CourseRegistration({
                             ) : (
                               <Button
                                 size="sm"
-                                onClick={() =>
-                                  handleSubjectRegistration(subject.id, true)
-                                }
+                                onClick={() => {}}
                                 disabled={
                                   (subject.enrolled_count || 0) >=
                                   subject.student_limit
@@ -778,9 +681,7 @@ export function CourseRegistration({
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() =>
-                                  handleEventRegistration(event.id, false)
-                                }
+                                onClick={() => {}}
                                 className="text-destructive"
                               >
                                 <Minus className="h-4 w-4 mr-1" />
@@ -789,9 +690,7 @@ export function CourseRegistration({
                             ) : (
                               <Button
                                 size="sm"
-                                onClick={() =>
-                                  handleEventRegistration(event.id, true)
-                                }
+                                onClick={() => {}}
                                 disabled={
                                   (event.registration_count || 0) >=
                                   event.student_limit

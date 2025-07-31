@@ -21,7 +21,6 @@ export function AttendanceTable() {
   const loadRecords = async () => {
     const { data, error } = await supabase.from("attendance_records").select(`
         *,
-        attendance_sessions(classes(title)),
         users!attendance_records_student_id_fkey(name)
       `);
 
@@ -53,7 +52,7 @@ export function AttendanceTable() {
           {records.map((record) => (
             <TableRow key={record.id}>
               <TableCell>
-                {(record as any).attendance_sessions?.classes?.title}
+                {(record as any).classes?.title}
               </TableCell>
               <TableCell>{(record as any).users?.name}</TableCell>
               <TableCell>

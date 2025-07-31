@@ -228,25 +228,3 @@ export async function getClassAttendance(classId: string) {
     return [];
   }
 }
-
-/**
- * Function to get attendance percentage for a student
- */
-export async function getStudentAttendancePercentage(studentId: string) {
-  try {
-    const { data, error } = await supabase
-      .from("attendance_percentage")
-      .select("*")
-      .eq("student_id", studentId);
-
-    if (error) {
-      console.error("Error getting student attendance percentage:", error);
-      return [];
-    }
-
-    return data || [];
-  } catch (error) {
-    console.error("Error getting student attendance percentage:", error);
-    return [];
-  }
-}

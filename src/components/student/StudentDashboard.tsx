@@ -114,21 +114,13 @@ function StudentDashboard() {
 
       // Load enrolled subjects
       const { data: subjectData, error: subjectError } = await supabase
-        .from("student_subject_registrations")
+        .from("class_enrollments")
         .select(
           `
           *,
-          subjects!student_subject_registrations_subject_id_fkey(
+          subjects!class_enrollments_subject_id_fkey(
             *,
-            users!subjects_teacher_id_fkey(name, teacher_id),
-            slot_assignments!inner(
-              slots(
-                slot_code,
-                day_of_week,
-                start_time,
-                end_time
-              )
-            )
+            users!subjects_teacher_id_fkey(name, teacher_id)
           )
         `,
         )
@@ -138,31 +130,11 @@ function StudentDashboard() {
       if (subjectError) {
         console.error("Error loading enrolled subjects:", subjectError);
       } else {
-        const dayNames = {
-          1: "Monday",
-          2: "Tuesday",
-          3: "Wednesday",
-          4: "Thursday",
-          5: "Friday",
-        };
-
-        const processedSubjects = (subjectData || []).map((registration) => {
-          const subject = registration.subjects;
-          const slotInfo = subject?.slot_assignments?.[0]?.slots;
-
+        const processedSubjects = (subjectData || []).map((enrollment) => {
+          const subject = enrollment.subjects;
           return {
-            ...subject,
+            ...enrollment,
             teacher: subject?.users,
-            slot_info: slotInfo
-              ? {
-                  slot_code: slotInfo.slot_code,
-                  day_name:
-                    dayNames[slotInfo.day_of_week as keyof typeof dayNames] ||
-                    "Unknown",
-                  start_time: slotInfo.start_time,
-                  end_time: slotInfo.end_time,
-                }
-              : null,
           };
         });
 

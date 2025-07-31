@@ -7,8 +7,6 @@ type Class = Database["public"]["Tables"]["classes"]["Row"];
 type Enrollment = Database["public"]["Tables"]["class_enrollments"]["Row"];
 type AttendanceRecord =
   Database["public"]["Tables"]["attendance_records"]["Row"];
-type AttendanceSession =
-  Database["public"]["Tables"]["attendance_sessions"]["Row"];
 
 // User functions
 export async function getUsers() {
@@ -119,32 +117,6 @@ export async function getEnrollmentsByStudentId(studentId: string) {
 }
 
 // Attendance functions
-export async function getAttendanceSessions() {
-  const { data, error } = await supabase
-    .from("attendance_sessions")
-    .select("*");
-  if (error) {
-    console.error("Error fetching attendance sessions:", error);
-    return [];
-  }
-  return data || [];
-}
-
-export async function getAttendanceSessionsByClassId(classId: string) {
-  const { data, error } = await supabase
-    .from("attendance_sessions")
-    .select("*")
-    .eq("class_id", classId);
-  if (error) {
-    console.error(
-      `Error fetching attendance sessions for class ${classId}:`,
-      error,
-    );
-    return [];
-  }
-  return data || [];
-}
-
 export async function getAttendanceRecords() {
   const { data, error } = await supabase.from("attendance_records").select("*");
   if (error) {
