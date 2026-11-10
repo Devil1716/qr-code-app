@@ -9,11 +9,9 @@ A secure, cross-platform attendance management system that allows teachers to ge
 
 #### 🔐 Authentication & Security
 - **Three User Types Only**: Admin, Teacher, Student
-- **Authorized Users**:
-  - Admin: SSharan.s@outlook.com
-  - Teacher: sharan071718@gmail.com  
-  - Student: sharan@s.amity.edu
-- **Secure Password**: Sharan17# (for all accounts)
+- **Authorized Users**: Accounts are provisioned by an administrator; do not publish account identifiers or credentials in this repository.
+
+- **Secure Passwords**: Use unique credentials managed through the authentication system; never share or commit passwords.
 - **Persistent Sessions**: 24-hour session timeout with automatic renewal
 - **Proxy Detection**: Blocks VPN/proxy access with real-time detection
 - **Security Logging**: All access attempts and security events are logged
