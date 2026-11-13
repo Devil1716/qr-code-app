@@ -111,6 +111,8 @@ A secure, cross-platform attendance management system that allows teachers to ge
 ### Development & Deployment
 
 #### Development Setup
+Copy `.env.example` to `.env` and fill in your Supabase project URL and anonymous key. Keep server-only keys out of Vite variables and never commit `.env`.
+
 ```bash
 npm install
 npm run dev
