@@ -84,8 +84,8 @@ serve(async (req) => {
           status,
           is_manual: is_manual || false,
           marked_by: marked_by || null,
-          location_lat: location_lat || null,
-          location_lng: location_lng || null,
+          location_lat: location_lat ?? null,
+          location_lng: location_lng ?? null,
         })
         .eq("id", existingRecord.id)
         .select()
@@ -112,8 +112,8 @@ serve(async (req) => {
           status,
           is_manual: is_manual || false,
           marked_by: marked_by || null,
-          location_lat: location_lat || null,
-          location_lng: location_lng || null,
+          location_lat: location_lat ?? null,
+          location_lng: location_lng ?? null,
         })
         .select()
         .single();
