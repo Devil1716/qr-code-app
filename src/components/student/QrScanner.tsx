@@ -70,7 +70,7 @@ const isSecureContext = () => {
 };
 
 // Test mode flag - set to true to enable mock QR data for development
-const TEST_MODE = import.meta.env.DEV && true; // Enable test mode in development
+const TEST_MODE = import.meta.env.DEV && import.meta.env.VITE_QR_TEST_MODE === "true";
 
 export function QrScanner({
   open = true,
