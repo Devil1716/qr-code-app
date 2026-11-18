@@ -524,20 +524,32 @@ export function QrScanner({
         return;
       }
 
-      // Calculate distance if location is available
-      if (location && qrData.location) {
-        const distance = calculateDistance(
-          location.coords.latitude,
-          location.coords.longitude,
-          qrData.location.lat,
-          qrData.location.lng,
-        );
+      // Require valid location data before recording attendance.
+      if (!location) {
+        setError("Location is required to verify attendance. Enable location services and try again.");
+        return;
+      }
 
-        if (distance > 0.05) {
-          // Increased to 50 meters for testing
-          setError("You are too far from the class location");
-          return;
-        }
+      const qrLocation = qrData.location;
+      if (
+        !qrLocation ||
+        !Number.isFinite(qrLocation.lat) ||
+        !Number.isFinite(qrLocation.lng)
+      ) {
+        setError("QR code is missing valid location data");
+        return;
+      }
+
+      const distance = calculateDistance(
+        location.coords.latitude,
+        location.coords.longitude,
+        qrLocation.lat,
+        qrLocation.lng,
+      );
+
+      if (distance > 0.05) {
+        setError("You are too far from the class location");
+        return;
       }
 
       // Get current user ID from localStorage
