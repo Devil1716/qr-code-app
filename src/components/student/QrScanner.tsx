@@ -517,7 +517,16 @@ export function QrScanner({
 
       const qrData = JSON.parse(data);
 
-      // Verify if QR code is expired
+      // Reject malformed timestamps or lifetimes before checking expiration.
+      if (
+        !Number.isFinite(qrData.timestamp) ||
+        !Number.isFinite(qrData.expiresIn) ||
+        qrData.expiresIn <= 0
+      ) {
+        setError("QR code has invalid expiration data");
+        return;
+      }
+
       const expirationTime = qrData.timestamp + qrData.expiresIn * 1000;
       if (Date.now() > expirationTime) {
         setError("QR code has expired");
